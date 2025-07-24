@@ -1,6 +1,7 @@
 // NOTE: YOU CAN ALWAYS GO TO GODOT HELP FOR HOW AN OBJECT FUNCTIONS 
 using Godot;  // This is importing everything from the Godot name space. similar to a module
 using System;
+using System.Collections.Generic;
 
 // A c sharp namespace is a way of categorizing or organizing different files in the solution
 // a namespace is used when you are importing using the using keyword
@@ -9,9 +10,16 @@ namespace Game;  // The main namespace we use for our own files that are separat
 
 public partial class Main : Node2D
 {
+    // have references to the nodes in your game
     private Sprite2D cursor;
     private PackedScene buildingScene;   // a packed scene is the date requiered to instantiate a scene.
     private Button placeBuildingButton;
+    private TileMapLayer highlightTilemapLayer;
+
+    private Vector2? hoveredGridCell;  // The ? mark makes a struct nullable. The way the godot implements vector 2 is with a struct with cannot have a value of null by default
+                                       // We could need to know that there is no current hovered grid cell. now our default hovered grid cell postion is null.
+    private HashSet<Vector2> occupiedCells = new();  // new() is an alternate way of saying new Hashset<Vector2>
+
 
     //Called when the node enters the scene tree for the first time.
     // This ready method is called after the ready methods of all its children have been called. all decendents get called first b4 root basically saying they are configured and ready to go
@@ -26,6 +34,7 @@ public partial class Main : Node2D
                                                // the node we are trying to target in the scene tree. GetNode always happens relative to the current node we are calling it from.
                                                // when there is no leading forward slash. Saying in relatioin to main find the node called sprite 2d.
         placeBuildingButton = GetNode<Button>("PlaceBuildingButton");
+        highlightTilemapLayer = GetNode<TileMapLayer>("HighlightTileMapLayer");
 
         cursor.Visible = false;
 
@@ -35,7 +44,7 @@ public partial class Main : Node2D
 
     public override void _UnhandledInput(InputEvent evt) // overide not untop like in jave but after public can't use event as a variable name because it is a cSharp keyword
     {
-        if (cursor.Visible && evt.IsActionPressed("left_click"))
+        if (cursor.Visible && evt.IsActionPressed("left_click") && !occupiedCells.Contains(GetMouseGridCellPosition()))
         {
             PlaceBuildingAtMousePosition();
             cursor.Visible = false;
@@ -49,7 +58,11 @@ public partial class Main : Node2D
         cursor.GlobalPosition = gridPosition * 64;  // GlobalPostion is the postion of the node 2d in the world.
                                                     // there is another property called postion which is its relative postion to its parent.
                                                     // We are doing this (multipltying by 64) so the pixel positon of the sprite is directly aligned with the grid.
-
+        if (cursor.Visible && (!hoveredGridCell.HasValue || hoveredGridCell.Value != gridPosition))
+        {
+            hoveredGridCell = gridPosition;
+            UpdateHighlightTileMapLayer();
+        }
     }
 
     private Vector2 GetMouseGridCellPosition() // This method create so we do not repeat ourselves, when getting the mouse posion in the grid cell
@@ -69,8 +82,29 @@ public partial class Main : Node2D
         var gridPosition = GetMouseGridCellPosition();
         building.GlobalPosition = gridPosition * 64; // NOTE when instantiating variables/objects always pass in the most specific type as a generic type so certain methods can be used on them. 
                                                      // find out if the above is a c# thing or a godot thing ???
+        occupiedCells.Add(gridPosition);
+
+        hoveredGridCell = null;
+        UpdateHighlightTileMapLayer();
     }
 
+    private void UpdateHighlightTileMapLayer()
+    {
+        highlightTilemapLayer.Clear();
+
+        if (!hoveredGridCell.HasValue)
+        {
+            return;
+        }
+
+        for (var x = hoveredGridCell.Value.X - 3; x <= hoveredGridCell.Value.X + 3; x++)
+        {
+            for (var y = hoveredGridCell.Value.Y - 3; y <= hoveredGridCell.Value.Y + 3; y++)
+            {
+                highlightTilemapLayer.SetCell(new Vector2I((int)x, (int)y), 0, Vector2I.Zero);
+            }
+        }
+    }
 
     private void OnButtonPressed()
     {

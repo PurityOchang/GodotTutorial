@@ -19,8 +19,9 @@ public partial class Main : Node
     private PackedScene buildingScene;   // a packed scene is the date requiered to instantiate a scene.
     private Button placeBuildingButton;
 
-    private Vector2? hoveredGridCell;  // The ? mark makes a struct nullable. The way the godot implements vector 2 is with a struct with cannot have a value of null by default
-                                       // We could need to know that there is no current hovered grid cell. now our default hovered grid cell postion is null.
+    private Vector2I? hoveredGridCell;  // The ? mark makes a struct nullable. The way the godot implements vector 2 is with a struct with cannot have a value of null by default
+                                        // We could need to know that there is no current hovered grid cell. now our default hovered grid cell postion is null.
+                                       // Vector2I is an integer vector instead of a float vector.
 
 
     //Called when the node enters the scene tree for the first time.
@@ -63,7 +64,7 @@ public partial class Main : Node
         if (cursor.Visible && (!hoveredGridCell.HasValue || hoveredGridCell.Value != gridPosition))
         {
             hoveredGridCell = gridPosition;
-            gridManager.HighlightValidTilesInRadius(hoveredGridCell.Value, 3);
+            gridManager.HighlightBuildableTiles();
         }
     }
 

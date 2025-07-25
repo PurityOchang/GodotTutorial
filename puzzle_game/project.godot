@@ -15,10 +15,16 @@ run/main_scene="uid://c4ijdxu7jp3vi"
 config/features=PackedStringArray("4.4", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+GameEvents="*res://scenes/autoload/GameEvents.tscn"
+
 [display]
 
-window/size/window_width_override=2000
-window/size/window_height_override=1300
+window/size/viewport_width=1536
+window/size/viewport_height=768
+window/size/window_width_override=2200
+window/size/window_height_override=1600
 window/stretch/mode="canvas_items"
 
 [dotnet]

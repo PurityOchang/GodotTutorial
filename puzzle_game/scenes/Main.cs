@@ -1,24 +1,26 @@
 // NOTE: YOU CAN ALWAYS GO TO GODOT HELP FOR HOW AN OBJECT FUNCTIONS 
 using Godot;  // This is importing everything from the Godot name space. similar to a module
-using System;
-using System.Collections.Generic;
+//using System; we are not using system so it is commented out.
+
+using Game.Manager;  // I included this namespace so I am able to use GridManager.
 
 // A c sharp namespace is a way of categorizing or organizing different files in the solution
 // a namespace is used when you are importing using the using keyword
 namespace Game;  // The main namespace we use for our own files that are separate or extend godot functionality
 
 
-public partial class Main : Node2D
+
+
+public partial class Main : Node
 {
+    private GridManager gridManager;  // A reference to grid manager 
     // have references to the nodes in your game
     private Sprite2D cursor;
     private PackedScene buildingScene;   // a packed scene is the date requiered to instantiate a scene.
     private Button placeBuildingButton;
-    private TileMapLayer highlightTilemapLayer;
 
     private Vector2? hoveredGridCell;  // The ? mark makes a struct nullable. The way the godot implements vector 2 is with a struct with cannot have a value of null by default
                                        // We could need to know that there is no current hovered grid cell. now our default hovered grid cell postion is null.
-    private HashSet<Vector2> occupiedCells = new();  // new() is an alternate way of saying new Hashset<Vector2>
 
 
     //Called when the node enters the scene tree for the first time.
@@ -26,6 +28,7 @@ public partial class Main : Node2D
     public override void _Ready()
     {
         buildingScene = GD.Load<PackedScene>("res://scenes/building/Building.tscn");  // Load is for loading any type of node
+        gridManager = GetNode<GridManager>("GridManager");
         cursor = GetNode<Sprite2D>("Cursor");  // Rememeber in heritance form 270 you cannot equate a more specific type to a less
                                                // specific one. Getnode returns a generic node sprite is a Sprite2D. Remember the heirarchy.
                                                // The angular brackets supply Sprite2D as the generic type.  Cursor/Node2D -this is the node path of a child of cursor.
@@ -34,7 +37,6 @@ public partial class Main : Node2D
                                                // the node we are trying to target in the scene tree. GetNode always happens relative to the current node we are calling it from.
                                                // when there is no leading forward slash. Saying in relatioin to main find the node called sprite 2d.
         placeBuildingButton = GetNode<Button>("PlaceBuildingButton");
-        highlightTilemapLayer = GetNode<TileMapLayer>("HighlightTileMapLayer");
 
         cursor.Visible = false;
 
@@ -44,9 +46,9 @@ public partial class Main : Node2D
 
     public override void _UnhandledInput(InputEvent evt) // overide not untop like in jave but after public can't use event as a variable name because it is a cSharp keyword
     {
-        if (cursor.Visible && evt.IsActionPressed("left_click") && !occupiedCells.Contains(GetMouseGridCellPosition()))
+        if (hoveredGridCell.HasValue && cursor.Visible && evt.IsActionPressed("left_click") && gridManager.IsTilePositionValid(hoveredGridCell.Value))
         {
-            PlaceBuildingAtMousePosition();
+            PlaceBuildingAtHoveredCellPosition();
             cursor.Visible = false;
         }
     }
@@ -54,57 +56,35 @@ public partial class Main : Node2D
     // Called every frame. 'delta' is the elapsed tiime since the previous frame.
     public override void _Process(double delta)   // This delta passes the amount of time since the last frame
     {
-        var gridPosition = GetMouseGridCellPosition();
+        var gridPosition = gridManager.GetMouseGridCellPosition();
         cursor.GlobalPosition = gridPosition * 64;  // GlobalPostion is the postion of the node 2d in the world.
                                                     // there is another property called postion which is its relative postion to its parent.
                                                     // We are doing this (multipltying by 64) so the pixel positon of the sprite is directly aligned with the grid.
         if (cursor.Visible && (!hoveredGridCell.HasValue || hoveredGridCell.Value != gridPosition))
         {
             hoveredGridCell = gridPosition;
-            UpdateHighlightTileMapLayer();
+            gridManager.HighlightValidTilesInRadius(hoveredGridCell.Value, 3);
         }
     }
 
-    private Vector2 GetMouseGridCellPosition() // This method create so we do not repeat ourselves, when getting the mouse posion in the grid cell
-    {
-        var mousePosition = GetGlobalMousePosition();  // returns a vector2 that is the x and y postion of the mouse
-        var gridPosition = mousePosition / 64;
-        gridPosition = gridPosition.Floor();   // so we do not get fractional positions
-        return gridPosition;
-    }
 
-    private void PlaceBuildingAtMousePosition()
+    private void PlaceBuildingAtHoveredCellPosition()
     {
+        if (!hoveredGridCell.HasValue) return;    // a saftety check
+
         var building = buildingScene.Instantiate<Node2D>(); // this takes the data representation of building scene (building.tscn from earlier)and Instantiate would go through all that data
                                                             // and create every single node such that we now have a node we could add to the scene tree. hovering over building, we see has a type of Node
         AddChild(building); // Add child adds the child of whatever node we are currently on. and in this case, it is main. As a child of main, we are adding the building node.
                             // building contains the root node and sprite 2d. However, by default, when we add to our scene, it has a postion 0,0
-        var gridPosition = GetMouseGridCellPosition();
-        building.GlobalPosition = gridPosition * 64; // NOTE when instantiating variables/objects always pass in the most specific type as a generic type so certain methods can be used on them. 
-                                                     // find out if the above is a c# thing or a godot thing ???
-        occupiedCells.Add(gridPosition);
+        
+        building.GlobalPosition = hoveredGridCell.Value * 64; // NOTE when instantiating variables/objects always pass in the most specific type as a generic type so certain methods can be used on them. 
+                                                              // find out if the above is a c# thing or a godot thing ???
+        gridManager.MarkTileAsOccupied(hoveredGridCell.Value);
 
         hoveredGridCell = null;
-        UpdateHighlightTileMapLayer();
+        gridManager.ClearHighlightedTiles();
     }
 
-    private void UpdateHighlightTileMapLayer()
-    {
-        highlightTilemapLayer.Clear();
-
-        if (!hoveredGridCell.HasValue)
-        {
-            return;
-        }
-
-        for (var x = hoveredGridCell.Value.X - 3; x <= hoveredGridCell.Value.X + 3; x++)
-        {
-            for (var y = hoveredGridCell.Value.Y - 3; y <= hoveredGridCell.Value.Y + 3; y++)
-            {
-                highlightTilemapLayer.SetCell(new Vector2I((int)x, (int)y), 0, Vector2I.Zero);
-            }
-        }
-    }
 
     private void OnButtonPressed()
     {
